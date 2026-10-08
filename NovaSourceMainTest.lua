@@ -1,5 +1,5 @@
 --[[\
-	NovaUI - Modern UI Library
+	NovaUI - Modern & Advanced UI Library
 	Inspired by Rayfield & Fluent
 ]]--
 
@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -31,8 +32,12 @@ function NovaUI:CreateWindow(Settings)
 	local LoadingSubtitle = Settings.LoadingSubtitle or "Cargando interfaz..."
 	local KeySystem = Settings.KeySystem or false
 	local KeySettings = Settings.KeySettings or {}
+	local RGBBorders = Settings.RGBBorders or false
+	local UseAnimations = Settings.Animations ~= false -- Por defecto true
+	local UserProfileSettings = Settings.UserProfile or { Enabled = false }
+	local WatermarkSettings = Settings.Watermark or { Enabled = false }
 
-	-- Sistema de Keys
+	-- 1. Sistema de Keys
 	local KeyPassed = false
 	if KeySystem then
 		local KeyGui = Instance.new("ScreenGui")
@@ -133,7 +138,7 @@ function NovaUI:CreateWindow(Settings)
 		repeat task.wait() until KeyPassed
 	end
 
-	-- Pantalla de Carga (2.5 segundos)
+	-- 2. Pantalla de Carga (2.5 segundos)
 	local LoadGui = Instance.new("ScreenGui")
 	LoadGui.Name = "NovaLoading"
 	LoadGui.Parent = ParentGui
@@ -191,17 +196,35 @@ function NovaUI:CreateWindow(Settings)
 	BarFillCorner.CornerRadius = UDim.new(1, 0)
 	BarFillCorner.Parent = BarFill
 
-	TweenService:Create(BarFill, TweenInfo.new(2.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+	if UseAnimations then
+		TweenService:Create(BarFill, TweenInfo.new(2.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+	else
+		BarFill.Size = UDim2.new(1, 0, 1, 0)
+	end
 	task.wait(2.5)
 	LoadGui:Destroy()
 
-	-- Interfaz Principal
+	-- 3. Interfaz Principal
 	local ScreenGui = Instance.new("ScreenGui")
 	ScreenGui.Name = "NovaUI"
 	ScreenGui.Parent = ParentGui
 	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Botón flotante "UI"
+	-- Notificaciones Container
+	local NotifContainer = Instance.new("Frame")
+	NotifContainer.Name = "Notifications"
+	NotifContainer.Size = UDim2.new(0, 250, 1, 0)
+	NotifContainer.Position = UDim2.new(1, -260, 0, 0)
+	NotifContainer.BackgroundTransparency = 1
+	NotifContainer.Parent = ScreenGui
+
+	local NotifLayout = Instance.new("UIListLayout")
+	NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	NotifLayout.Padding = UDim.new(0, 10)
+	NotifLayout.Parent = NotifContainer
+
+	-- Botón Flotante "UI"
 	local ToggleButton = Instance.new("TextButton")
 	ToggleButton.Name = "ToggleUI"
 	ToggleButton.Size = UDim2.new(0, 45, 0, 45)
@@ -223,10 +246,44 @@ function NovaUI:CreateWindow(Settings)
 	ToggleStroke.Thickness = 1
 	ToggleStroke.Parent = ToggleButton
 
+	-- Watermark Opcional
+	if WatermarkSettings.Enabled then
+		local Watermark = Instance.new("Frame")
+		Watermark.Size = UDim2.new(0, 200, 0, 30)
+		Watermark.Position = UDim2.new(1, -220, 0, 20)
+		Watermark.BackgroundColor3 = Color3.fromRGB(15, 15, 19)
+		Watermark.BorderSizePixel = 0
+		Watermark.Parent = ScreenGui
+
+		local WCorner = Instance.new("UICorner")
+		WCorner.CornerRadius = UDim.new(0, 6)
+		WCorner.Parent = Watermark
+
+		local WStroke = Instance.new("UIStroke")
+		WStroke.Color = Color3.fromRGB(40, 40, 50)
+		WStroke.Thickness = 1
+		WStroke.Parent = Watermark
+
+		local WText = Instance.new("TextLabel")
+		WText.Size = UDim2.new(1, 0, 1, 0)
+		WText.BackgroundTransparency = 1
+		WText.Font = Enum.Font.GothamMedium
+		WText.TextColor3 = Color3.fromRGB(200, 200, 210)
+		WText.TextSize = 11
+		WText.Parent = Watermark
+
+		RunService.RenderStepped:Connect(function()
+			local fps = math.floor(1 / RunService.RenderStepped:Wait())
+			local ping = math.floor(LocalPlayer:GetNetworkPing() * 1000)
+			WText.Text = (WatermarkSettings.Text or "NovaUI") .. " | FPS: " .. fps .. " | Ping: " .. ping .. "ms"
+		end)
+	end
+
+	-- Ventana Principal
 	local MainFrame = Instance.new("Frame")
 	MainFrame.Name = "MainFrame"
-	MainFrame.Size = UDim2.new(0, 500, 0, 330)
-	MainFrame.Position = UDim2.new(0.5, -250, 0.5, -165)
+	MainFrame.Size = UDim2.new(0, 520, 0, 350)
+	MainFrame.Position = UDim2.new(0.5, -260, 0.5, -175)
 	MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 19)
 	MainFrame.BorderSizePixel = 0
 	MainFrame.ClipsDescendants = true
@@ -241,6 +298,16 @@ function NovaUI:CreateWindow(Settings)
 	MainStroke.Thickness = 1
 	MainStroke.Parent = MainFrame
 
+	-- Bucle RGB para bordes si está activado
+	if RGBBorders then
+		RunService.RenderStepped:Connect(function()
+			local hue = tick() % 5 / 5
+			MainStroke.Color = Color3.fromHSV(hue, 1, 1)
+			ToggleStroke.Color = Color3.fromHSV(hue, 1, 1)
+		end)
+	end
+
+	-- Barra Superior
 	local TopBar = Instance.new("Frame")
 	TopBar.Size = UDim2.new(1, 0, 0, 35)
 	TopBar.BackgroundTransparency = 1
@@ -257,9 +324,49 @@ function NovaUI:CreateWindow(Settings)
 	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	TitleLabel.Parent = TopBar
 
+	-- Perfil de Usuario Opcional (Izquierda superior)
+	local tabListOffset = 40
+	if UserProfileSettings.Enabled then
+		tabListOffset = 100
+		local ProfileFrame = Instance.new("Frame")
+		ProfileFrame.Size = UDim2.new(0, 130, 0, 50)
+		ProfileFrame.Position = UDim2.new(0, 10, 0, 40)
+		ProfileFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+		ProfileFrame.BorderSizePixel = 0
+		ProfileFrame.Parent = MainFrame
+
+		local PCorn = Instance.new("UICorner")
+		PCorn.CornerRadius = UDim.new(0, 6)
+		PCorn.Parent = ProfileFrame
+
+		local AvatarImg = Instance.new("ImageLabel")
+		AvatarImg.Size = UDim2.new(0, 36, 0, 36)
+		AvatarImg.Position = UDim2.new(0, 7, 0.5, -18)
+		AvatarImg.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+		AvatarImg.Image = UserProfileSettings.Image or Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size42x42)
+		AvatarImg.Parent = ProfileFrame
+
+		local ACorn = Instance.new("UICorner")
+		ACorn.CornerRadius = UDim.new(1, 0)
+		ACorn.Parent = AvatarImg
+
+		local NameLabel = Instance.new("TextLabel")
+		NameLabel.Size = UDim2.new(1, -48, 1, 0)
+		NameLabel.Position = UDim2.new(0, 46, 0, 0)
+		NameLabel.BackgroundTransparency = 1
+		NameLabel.Font = Enum.Font.GothamBold
+		NameLabel.Text = UserProfileSettings.Name or LocalPlayer.Name
+		NameLabel.TextColor3 = Color3.fromRGB(230, 230, 240)
+		NameLabel.TextSize = 11
+		NameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		NameLabel.Parent = ProfileFrame
+	end
+
+	-- Contenedor de Pestañas Izquierdas
 	local TabList = Instance.new("ScrollingFrame")
-	TabList.Size = UDim2.new(0, 130, 1, -45)
-	TabList.Position = UDim2.new(0, 10, 0, 40)
+	TabList.Size = UDim2.new(0, 130, 1, -(tabListOffset + 10))
+	TabList.Position = UDim2.new(0, 10, 0, tabListOffset)
 	TabList.BackgroundTransparency = 1
 	TabList.BorderSizePixel = 0
 	TabList.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -289,15 +396,10 @@ function NovaUI:CreateWindow(Settings)
 			dragging = true
 			dragStart = input.Position
 			startPos = MainFrame.Position
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-				end
-			end)
 		end
 	end)
 
-	TopBar.InputChanged:Connect(function(input)
+	UserInputService.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 			dragInput = input
 		end
@@ -310,7 +412,70 @@ function NovaUI:CreateWindow(Settings)
 		end
 	end)
 
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+
 	local Window = {}
+
+	function Window:Notify(NotifSettings)
+		local Title = NotifSettings.Title or "Notificación"
+		local Content = NotifSettings.Content or "Mensaje"
+		local Duration = NotifSettings.Duration or 3
+
+		local Notif = Instance.new("Frame")
+		Notif.Size = UDim2.new(1, 0, 0, 65)
+		Notif.Position = UDim2.new(1, 300, 0, 0)
+		Notif.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+		Notif.BorderSizePixel = 0
+		Notif.Parent = NotifContainer
+
+		local NCorn = Instance.new("UICorner")
+		NCorn.CornerRadius = UDim.new(0, 8)
+		NCorn.Parent = Notif
+
+		local NStroke = Instance.new("UIStroke")
+		NStroke.Color = Color3.fromRGB(45, 45, 55)
+		NStroke.Thickness = 1
+		NStroke.Parent = Notif
+
+		local NTitle = Instance.new("TextLabel")
+		NTitle.Size = UDim2.new(1, -20, 0, 25)
+		NTitle.Position = UDim2.new(0, 10, 0, 5)
+		NTitle.BackgroundTransparency = 1
+		NTitle.Font = Enum.Font.GothamBold
+		NTitle.Text = Title
+		NTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+		NTitle.TextSize = 13
+		NTitle.TextXAlignment = Enum.TextXAlignment.Left
+		NTitle.Parent = Notif
+
+		local NDesc = Instance.new("TextLabel")
+		NDesc.Size = UDim2.new(1, -20, 0, 30)
+		NDesc.Position = UDim2.new(0, 10, 0, 25)
+		NDesc.BackgroundTransparency = 1
+		NDesc.Font = Enum.Font.Gotham
+		NDesc.Text = Content
+		NDesc.TextColor3 = Color3.fromRGB(160, 160, 170)
+		NDesc.TextSize = 11
+		NDesc.TextWrapped = true
+		NDesc.TextXAlignment = Enum.TextXAlignment.Left
+		NDesc.Parent = Notif
+
+		if UseAnimations then
+			TweenService:Create(Notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+			task.wait(Duration)
+			TweenService:Create(Notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UDim2.new(1, 300, 0, 0)}):Play()
+			task.wait(0.3)
+		else
+			Notif.Position = UDim2.new(0, 0, 0, 0)
+			task.wait(Duration)
+		end
+		Notif:Destroy()
+	end
+
 	local firstTab = true
 
 	function Window:CreateTab(TabName)
@@ -363,16 +528,98 @@ function NovaUI:CreateWindow(Settings)
 			end
 			for _, btn in pairs(TabList:GetChildren()) do
 				if btn:IsA("TextButton") then
-					TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(150, 150, 160)}):Play()
+					if UseAnimations then
+						TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(150, 150, 160)}):Play()
+					else
+						btn.BackgroundTransparency = 1
+						btn.TextColor3 = Color3.fromRGB(150, 150, 160)
+					end
 				end
 			end
 			TabPage.Visible = true
-			TweenService:Create(TabButton, TweenInfo.new(0.2), {BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+			if UseAnimations then
+				TweenService:Create(TabButton, TweenInfo.new(0.2), {BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+			else
+				TabButton.BackgroundTransparency = 0
+				TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+			end
 		end)
 
 		firstTab = false
-
 		local TabObj = {}
+
+		function TabObj:CreateSection(SectionName)
+			local SecLabel = Instance.new("TextLabel")
+			SecLabel.Size = UDim2.new(1, 0, 0, 22)
+			SecLabel.BackgroundTransparency = 1
+			SecLabel.Font = Enum.Font.GothamBold
+			SecLabel.Text = "  " .. string.upper(SectionName)
+			SecLabel.TextColor3 = Color3.fromRGB(110, 110, 125)
+			SecLabel.TextSize = 10
+			SecLabel.TextXAlignment = Enum.TextXAlignment.Left
+			SecLabel.Parent = TabPage
+		end
+
+		function TabObj:CreateLabel(Text)
+			local Label = Instance.new("TextLabel")
+			Label.Size = UDim2.new(1, 0, 0, 28)
+			Label.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+			Label.BorderSizePixel = 0
+			Label.Font = Enum.Font.GothamMedium
+			Label.Text = "  " .. Text
+			Label.TextColor3 = Color3.fromRGB(200, 200, 210)
+			Label.TextSize = 12
+			Label.TextXAlignment = Enum.TextXAlignment.Left
+			Label.Parent = TabPage
+
+			local LCorner = Instance.new("UICorner")
+			LCorner.CornerRadius = UDim.new(0, 6)
+			LCorner.Parent = Label
+
+			local LObj = {}
+			function LObj:Set(NewText)
+				Label.Text = "  " .. NewText
+			end
+			return LObj
+		end
+
+		function TabObj:CreateParagraph(ParaSettings)
+			local Title = ParaSettings.Title or "Título"
+			local Content = ParaSettings.Content or "Contenido"
+
+			local Para = Instance.new("Frame")
+			Para.Size = UDim2.new(1, 0, 0, 55)
+			Para.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+			Para.BorderSizePixel = 0
+			Para.Parent = TabPage
+
+			local PCorn = Instance.new("UICorner")
+			PCorn.CornerRadius = UDim.new(0, 6)
+			PCorn.Parent = Para
+
+			local PTitle = Instance.new("TextLabel")
+			PTitle.Size = UDim2.new(1, -20, 0, 20)
+			PTitle.Position = UDim2.new(0, 10, 0, 5)
+			PTitle.BackgroundTransparency = 1
+			PTitle.Font = Enum.Font.GothamBold
+			PTitle.Text = Title
+			PTitle.TextColor3 = Color3.fromRGB(230, 230, 240)
+			PTitle.TextSize = 12
+			PTitle.TextXAlignment = Enum.TextXAlignment.Left
+			PTitle.Parent = Para
+
+			local PContent = Instance.new("TextLabel")
+			PContent.Size = UDim2.new(1, -20, 0, 25)
+			PContent.Position = UDim2.new(0, 10, 0, 25)
+			PContent.BackgroundTransparency = 1
+			PContent.Font = Enum.Font.Gotham
+			PContent.Text = Content
+			PContent.TextColor3 = Color3.fromRGB(150, 150, 160)
+			PContent.TextSize = 11
+			PContent.TextWrapped = true
+			PContent.TextXAlignment = Enum.TextXAlignment.Left
+			PContent.Parent = Para
+		end
 
 		function TabObj:CreateButton(ButtonSettings)
 			local ButtonName = ButtonSettings.Name or "Botón"
@@ -395,9 +642,11 @@ function NovaUI:CreateWindow(Settings)
 
 			Button.MouseButton1Click:Connect(function()
 				pcall(Callback)
-				TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 45)}):Play()
-				task.wait(0.1)
-				TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 22, 28)}):Play()
+				if UseAnimations then
+					TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 45)}):Play()
+					task.wait(0.1)
+					TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 22, 28)}):Play()
+				end
 			end)
 		end
 
@@ -405,7 +654,6 @@ function NovaUI:CreateWindow(Settings)
 			local ToggleName = ToggleSettings.Name or "Toggle"
 			local Default = ToggleSettings.CurrentValue or false
 			local Callback = ToggleSettings.Callback or function() end
-
 			local Toggled = Default
 
 			local Toggle = Instance.new("TextButton")
@@ -437,9 +685,12 @@ function NovaUI:CreateWindow(Settings)
 			Toggle.MouseButton1Click:Connect(function()
 				Toggled = not Toggled
 				pcall(Callback, Toggled)
-				TweenService:Create(Checkbox, TweenInfo.new(0.2), {
-					BackgroundColor3 = Toggled and Color3.fromRGB(88, 101, 242) or Color3.fromRGB(32, 32, 42)
-				}):Play()
+				local targetColor = Toggled and Color3.fromRGB(88, 101, 242) or Color3.fromRGB(32, 32, 42)
+				if UseAnimations then
+					TweenService:Create(Checkbox, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+				else
+					Checkbox.BackgroundColor3 = targetColor
+				end
 			end)
 		end
 
@@ -527,7 +778,6 @@ function NovaUI:CreateWindow(Settings)
 		end
 
 		function TabObj:CreateDropdown(DropdownSettings)
-			-- Implementación básica de Dropdown
 			local DropdownName = DropdownSettings.Name or "Dropdown"
 			local Options = DropdownSettings.Options or {}
 			local Callback = DropdownSettings.Callback or function() end
@@ -547,10 +797,8 @@ function NovaUI:CreateWindow(Settings)
 			DCorn.CornerRadius = UDim.new(0, 6)
 			DCorn.Parent = DropdownBtn
 
-			local opened = false
 			local optIndex = 1
 			DropdownBtn.MouseButton1Click:Connect(function()
-				opened = not opened
 				optIndex = optIndex % #Options + 1
 				local chosen = Options[optIndex]
 				DropdownBtn.Text = "  "..DropdownName.." : "..tostring(chosen)
@@ -590,7 +838,6 @@ function NovaUI:CreateWindow(Settings)
 			CDCorn.Parent = ColorDisplay
 
 			CPBtn.MouseButton1Click:Connect(function()
-				-- Ciclo simple de prueba de colores para el picker
 				local newColor = Color3.fromRGB(math.random(0,255), math.random(0,255), math.random(0,255))
 				ColorDisplay.BackgroundColor3 = newColor
 				pcall(Callback, newColor)
